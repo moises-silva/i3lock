@@ -44,6 +44,8 @@
 
 typedef void (*ev_callback_t)(EV_P_ ev_timer *w, int revents);
 
+int gotpointer = 0;
+int gotkeyboard = 0;
 char color[7] = "ffffff";
 int inactivity_timeout = 30;
 uint32_t last_resolution[2];
@@ -730,6 +732,12 @@ static void raise_loop(xcb_window_t window) {
     }
 }
 
+static void grab_pk_timer_timeout(EV_P_ ev_timer *t, int revents)
+{
+    if (!gotpointer || !gotkeyboard)
+        grab_pointer_and_keyboard(conn, screen, cursor);
+}
+
 int main(int argc, char *argv[]) {
     struct passwd *pw;
     char *username;
@@ -964,6 +972,7 @@ int main(int argc, char *argv[]) {
     struct ev_io *xcb_watcher = calloc(sizeof(struct ev_io), 1);
     struct ev_check *xcb_check = calloc(sizeof(struct ev_check), 1);
     struct ev_prepare *xcb_prepare = calloc(sizeof(struct ev_prepare), 1);
+    struct ev_timer *grab_pk_timer = calloc(sizeof(struct ev_timer), 1);
 
     ev_io_init(xcb_watcher, xcb_got_event, xcb_get_file_descriptor(conn), EV_READ);
     ev_io_start(main_loop, xcb_watcher);
@@ -973,6 +982,10 @@ int main(int argc, char *argv[]) {
 
     ev_prepare_init(xcb_prepare, xcb_prepare_cb);
     ev_prepare_start(main_loop, xcb_prepare);
+
+    ev_timer_init(grab_pk_timer, grab_pk_timer_timeout, 1.0, 0.0);
+    grab_pk_timer->repeat = 1;
+    ev_timer_again(main_loop, grab_pk_timer);
 
     /* Invoke the event callback once to catch all the events which were
      * received up until now. ev will only pick up new events (when the X11

@@ -22,6 +22,8 @@
 
 xcb_connection_t *conn;
 xcb_screen_t *screen;
+extern int gotkeyboard;
+extern int gotpointer;
 
 #define curs_invisible_width 8
 #define curs_invisible_height 8
@@ -164,7 +166,7 @@ void grab_pointer_and_keyboard(xcb_connection_t *conn, xcb_screen_t *screen, xcb
     xcb_grab_keyboard_cookie_t kcookie;
     xcb_grab_keyboard_reply_t *kreply;
 
-    int tries = 10000;
+    int tries = 3;
 
     while (tries-- > 0) {
         pcookie = xcb_grab_pointer(
@@ -181,11 +183,15 @@ void grab_pointer_and_keyboard(xcb_connection_t *conn, xcb_screen_t *screen, xcb
         if ((preply = xcb_grab_pointer_reply(conn, pcookie, NULL)) &&
             preply->status == XCB_GRAB_STATUS_SUCCESS) {
             free(preply);
+            gotpointer++;
             break;
         }
 
+        if (preply) {
+            fprintf(stderr, "preply->status: %d\n", preply->status);
+        }
         /* Make this quite a bit slower */
-        usleep(50);
+        usleep(100000);
     }
 
     while (tries-- > 0) {
@@ -200,15 +206,20 @@ void grab_pointer_and_keyboard(xcb_connection_t *conn, xcb_screen_t *screen, xcb
         if ((kreply = xcb_grab_keyboard_reply(conn, kcookie, NULL)) &&
             kreply->status == XCB_GRAB_STATUS_SUCCESS) {
             free(kreply);
+            gotkeyboard++;
             break;
         }
 
+        if (kreply) {
+            fprintf(stderr, "preply->status: %d\n", kreply->status);
+        }
         /* Make this quite a bit slower */
-        usleep(50);
+        usleep(100000);
     }
 
     if (tries <= 0)
-        errx(EXIT_FAILURE, "Cannot grab pointer/keyboard");
+        fprintf(stderr, "Cannot grab pointer/keyboard (%d/%d)\n", gotpointer, gotkeyboard);
+        //errx(EXIT_FAILURE, "Cannot grab pointer/keyboard (%d/%d)", gotpointer, gotkeyboard);
 }
 
 xcb_cursor_t create_cursor(xcb_connection_t *conn, xcb_screen_t *screen, xcb_window_t win, int choice) {
